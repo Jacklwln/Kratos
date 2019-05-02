@@ -304,7 +304,7 @@ class InitializeGeometryProcess(KratosMultiphysics.Process):
         for elnode in max_elem.GetNodes():
             if elnode.X>max_elem.GetGeometry().Center().X:
                 n_center+=1
-                kutta_model_part.AddNode(elnode,0)
+                # kutta_model_part.AddNode(elnode,0)
         for elnode in max_elem.GetNodes():
             if elnode.X>max_x_node:
                 max_x_node=elnode.X
