@@ -154,6 +154,7 @@ void  AddCustomUtilitiesToPython(pybind11::module& m)
         // ----------------------------------------------------------------
         .def("ComputeControlPointUpdate", &OptimizationUtilities::ComputeControlPointUpdate)
         .def("AddFirstVariableToSecondVariable", &OptimizationUtilities::AddFirstVariableToSecondVariable)
+        .def("AddScaledFirstVariableToSecondVariable", &OptimizationUtilities::AddScaledFirstVariableToSecondVariable)
         .def("ComputeL2NormOfNodalVariable", ComputeL2NormScalar)
         .def("ComputeL2NormOfNodalVariable", ComputeL2NormVector)
         .def("ComputeMaxNormOfNodalVariable", ComputeMaxNormScalar)

@@ -134,6 +134,13 @@ public:
     }
 
     // --------------------------------------------------------------------------
+    void AddScaledFirstVariableToSecondVariable( const double scaling_factor, const Variable<array_3d> &rFirstVariable, const Variable<array_3d> &rSecondVariable )
+    {
+        for (auto & node_i : mrDesignSurface.Nodes())
+            noalias(node_i.FastGetSolutionStepValue(rSecondVariable)) += scaling_factor*node_i.FastGetSolutionStepValue(rFirstVariable);
+    }
+
+    // --------------------------------------------------------------------------
     double ComputeL2NormOfNodalVariable( const Variable<array_3d> &rVariable)
     {
         double l2_norm = 0.0;

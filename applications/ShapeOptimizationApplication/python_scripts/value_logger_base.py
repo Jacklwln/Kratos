@@ -25,24 +25,34 @@ class ValueLogger():
 
         self.complete_log_file_name = self.__CreateCompleteLogFileName( optimization_settings )
 
-        self.obj_reference_value = 0
         self.current_iteration = 0
         self.previos_iteration = 0
 
-        self.history = { "value"                : {},
-                         "standardized_value"   : {},
-                         "abs_change_objective" : {},
-                         "abs_change_objective" : {} }
+        self.obj_reference_values = {}
+
+        self.history = { "value"                         : {},
+                         "standardized_value"            : {},
+                         "abs_change"                    : {},
+                         "rel_change"                    : {} }
 
         for itr in range(self.objectives.size()):
             objective_id = self.objectives[itr]["identifier"].GetString()
             self.history["value"][objective_id] = {}
             self.history["standardized_value"][objective_id] = {}
+            self.history["abs_change"][objective_id] = {}
+            self.history["rel_change"][objective_id] = {}
 
         for itr in range(self.constraints.size()):
             constraint_id = self.constraints[itr]["identifier"].GetString()
             self.history["value"][constraint_id] = {}
             self.history["standardized_value"][constraint_id] = {}
+            self.history["abs_change"][constraint_id] = {}
+            self.history["rel_change"][constraint_id] = {}
+
+        if self.objectives.size() > 1:
+            self.history["combined_objective_value"] = {}
+            self.history["combined_objective_abs_change"] = {}
+            self.history["combined_objective_rel_change"] = {}
 
         self.fixed_keys = list(self.history.keys())
 
@@ -87,29 +97,29 @@ class ValueLogger():
 
     # --------------------------------------------------------------------------
     def __LogObjectiveValuesToHistory( self ):
-        objective_id = self.objectives[0]["identifier"].GetString()
-        is_first_log = self.history["value"][objective_id] == {}
+        for itr in range(self.objectives.size()):
+            objective_id = self.objectives[itr]["identifier"].GetString()
+            is_first_log = self.history["value"][objective_id] == {}
 
-        self.history["value"][objective_id][self.current_iteration] = self.communicator.getValue( objective_id )
-        self.history["standardized_value"][objective_id][self.current_iteration] = self.communicator.getStandardizedValue( objective_id )
+            self.history["value"][objective_id][self.current_iteration] = self.communicator.getValue( objective_id )
+            self.history["standardized_value"][objective_id][self.current_iteration] = self.communicator.getStandardizedValue( objective_id )
 
-        if is_first_log:
-            self.obj_reference_value = self.communicator.getValue( objective_id )
+            if is_first_log:
+                self.obj_reference_values[objective_id] = self.communicator.getValue( objective_id )
+                if abs(self.obj_reference_values[objective_id])<1e-12:
+                    print("\n> WARNING: Reference value for objective \""+objective_id+"\" < 1e-12!! Therefore, standard reference value of 1 is assumed! ")
+                    self.obj_reference_values[objective_id] = 1.0
 
-            if abs(self.obj_reference_value)<1e-12:
-                print("\n> WARNING: Objective reference value < 1e-12!! Therefore, standard reference value of 1 is assumed! ")
-                self.obj_reference_value = 1.0
+                self.history["abs_change"][objective_id] = {self.current_iteration: 0.0}
+                self.history["rel_change"][objective_id] = {self.current_iteration: 0.0}
+            else:
+                current_obj_value = self.history["value"][objective_id][self.current_iteration]
+                previos_obj_value = self.history["value"][objective_id][self.previos_iteration]
+                abs_change = 100*(current_obj_value-self.obj_reference_values[objective_id]) / abs(self.obj_reference_values[objective_id])
+                rel_change = 100*(current_obj_value-previos_obj_value) / abs(self.obj_reference_values[objective_id])
 
-            self.history["abs_change_objective"] = {self.current_iteration: 0.0}
-            self.history["rel_change_objective"] = {self.current_iteration: 0.0}
-        else:
-            current_obj_value = self.history["value"][objective_id][self.current_iteration]
-            previos_obj_value = self.history["value"][objective_id][self.previos_iteration]
-            abs_change = 100*(current_obj_value-self.obj_reference_value) / abs(self.obj_reference_value)
-            rel_change = 100*(current_obj_value-previos_obj_value) / abs(self.obj_reference_value)
-
-            self.history["abs_change_objective"][self.current_iteration] = abs_change
-            self.history["rel_change_objective"][self.current_iteration] = rel_change
+                self.history["abs_change"][objective_id][self.current_iteration] = abs_change
+                self.history["rel_change"][objective_id][self.current_iteration] = rel_change
 
     # --------------------------------------------------------------------------
     def __LogConstraintValuesToHistory( self ):

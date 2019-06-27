@@ -155,21 +155,28 @@ class AlgorithmSteepestDescent(OptimizationAlgorithm):
         number_of_objectives = self.objectives.size()
 
         if number_of_objectives > 1:
+            VariableUtils().SetVectorVar(DFDX, [0.0, 0.0, 0.0], self.optimization_model_part.Nodes)
+
             for itr in range(number_of_objectives):
                 nodal_variable = KratosGlobals.GetVariable("DF"+str(itr+1)+"DX")
+
                 objective_id = self.objectives[itr]["identifier"].GetString()
                 gradient_dict = self.communicator.getStandardizedGradient(objective_id)
                 WriteDictionaryDataOnNodalVariable(gradient_dict, self.optimization_model_part, nodal_variable)
 
-            self.optimization_utilities.CombineObjectives(target_variable=DFDX)
+                if self.objectives[itr]["project_gradient_on_surface_normals"].GetBool():
+                    self.model_part_controller.ComputeUnitSurfaceNormals()
+                    self.model_part_controller.ProjectNodalVariableOnUnitSurfaceNormals(nodal_variable)
+
+                self.optimization_utilities.AddScaledFirstVariableToSecondVariable(self.objectives[itr]["weight"].GetDouble(), nodal_variable, DFDX)
         else:
             objective_id = self.objectives[0]["identifier"].GetString()
             gradient_dict = self.communicator.getStandardizedGradient(objective_id)
             WriteDictionaryDataOnNodalVariable(gradient_dict, self.optimization_model_part, DFDX)
 
-        if self.objectives[itr]["project_gradient_on_surface_normals"].GetBool():
-            self.model_part_controller.ComputeUnitSurfaceNormals()
-            self.model_part_controller.ProjectNodalVariableOnUnitSurfaceNormals(DFDX)
+            if self.objectives[0]["project_gradient_on_surface_normals"].GetBool():
+                self.model_part_controller.ComputeUnitSurfaceNormals()
+                self.model_part_controller.ProjectNodalVariableOnUnitSurfaceNormals(DFDX)
 
         self.model_part_controller.DampNodalVariableIfSpecified(DFDX)
 
@@ -226,7 +233,7 @@ class AlgorithmSteepestDescent(OptimizationAlgorithm):
     # --------------------------------------------------------------------------
     def __logCurrentOptimizationStep(self):
         self.previos_objective_value = self.communicator.getStandardizedValue(self.objectives[0]["identifier"].GetString())
-        self.norm_objective_gradient = self.optimization_utilities.ComputeL2NormOfNodalVariable(DF1DX_MAPPED)
+        self.norm_objective_gradient = self.optimization_utilities.ComputeL2NormOfNodalVariable(DFDX_MAPPED)
 
         additional_values_to_log = {}
         additional_values_to_log["step_size"] = self.step_size
@@ -251,11 +258,11 @@ class AlgorithmSteepestDescent(OptimizationAlgorithm):
                     print("\n> Optimization problem converged as gradient norm reached specified tolerance of ",self.gradient_tolerance)
                     return True
 
-            # Check for relative tolerance
-            relativeChangeOfObjectiveValue = self.data_logger.GetValue("rel_change_objective", self.optimization_iteration)
-            if abs(relativeChangeOfObjectiveValue) < self.relative_tolerance:
-                print("\n> Optimization problem converged within a relative objective tolerance of ",self.relative_tolerance,"%.")
-                return True
+            # # Check for relative tolerance
+            # relativeChangeOfObjectiveValue = self.data_logger.GetValue("rel_change_objective", self.optimization_iteration)
+            # if abs(relativeChangeOfObjectiveValue) < self.relative_tolerance:
+            #     print("\n> Optimization problem converged within a relative objective tolerance of ",self.relative_tolerance,"%.")
+            #     return True
 
     # --------------------------------------------------------------------------
     def __determineAbsoluteChanges(self):
