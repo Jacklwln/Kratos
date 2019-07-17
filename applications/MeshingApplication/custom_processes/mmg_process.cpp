@@ -113,11 +113,12 @@ void MmgProcess<TMMGLibrary>::ExecuteInitialize()
     /* We print one important information message */
     KRATOS_INFO_IF("MmgProcess", mEchoLevel > 0) << "We clone the first condition and element of each type (we will assume that each sub model part has just one kind of condition, in my opinion it is quite reccomended to create more than one sub model part if you have more than one element or condition)" << std::endl;
 
-    if( mRemoveRegions ){
-        // The conditions are re-creted in the process
-        mrThisModelPart.Conditions().clear();
-        KRATOS_INFO("MmgProcess") << "Conditions were cleared" << std::endl;
-    }
+    // // [NG] CHECK IF IT IS NECESSARY...
+    // if( mRemoveRegions ){
+    //     // The conditions are re-creted in the process
+    //     mrThisModelPart.Conditions().clear();
+    //     KRATOS_INFO("MmgProcess") << "Conditions were cleared" << std::endl;
+    // }
 
     /* We restart the MMG mesh and solution */
     mMmmgUtilities.SetEchoLevel(mEchoLevel);
@@ -157,6 +158,10 @@ void MmgProcess<TMMGLibrary>::ExecuteInitializeSolutionStep()
     std::endl << mrThisModelPart << std::endl;
 
     // We initialize the mesh and solution data
+    KRATOS_INFO("") << "\n\n" <<
+    "//---------------------------------------------------//" << std::endl <<
+    "//---------  START InitializeMeshData   -------------//" << std::endl <<
+    "//---------------------------------------------------//" << std::endl;
     InitializeMeshData();
 
     // We retrieve the data form the Kratos model part to fill sol
@@ -175,6 +180,10 @@ void MmgProcess<TMMGLibrary>::ExecuteInitializeSolutionStep()
     if (safe_to_file) SaveSolutionToFile(false);
 
     // We execute the remeshing
+    std::cout << "\n\n" <<
+    "//---------------------------------------------------//" << std::endl <<
+    "//------------  START ExecuteRemeshing   ------------//" << std::endl <<
+    "//---------------------------------------------------//" << std::endl;
     ExecuteRemeshing();
 
     /* We print the resulting model part */
@@ -267,6 +276,7 @@ void MmgProcess<TMMGLibrary>::InitializeMeshData()
     ColorsMapType aux_ref_cond, aux_ref_elem;
 
     // We initialize the mesh data with the given modelpart
+    std::cout << "\n   ##### InitializeMeshData/GenerateMeshDataFromModelPart #####\n" << std::endl;
     const bool collapse_prisms_elements = mThisParameters["collapse_prisms_elements"].GetBool();
     if (collapse_prisms_elements) {
         CollapsePrismsToTriangles();
@@ -282,6 +292,7 @@ void MmgProcess<TMMGLibrary>::InitializeMeshData()
         it_dof->FreeDof();
 
     // Generate the maps of reference
+    std::cout << "\n   ##### InitializeMeshData/GenerateReferenceMaps #####\n" << std::endl;
     mMmmgUtilities.GenerateReferenceMaps(mrThisModelPart, aux_ref_cond, aux_ref_elem, mpRefCondition, mpRefElement);
 }
 
@@ -363,6 +374,7 @@ void MmgProcess<TMMGLibrary>::ExecuteRemeshing()
     ////////* MMG LIBRARY CALL *////////
     KRATOS_INFO_IF("MmgProcess", mEchoLevel > 0) << "////////* MMG LIBRARY CALL *////////" << std::endl;
 
+    // [NG] REFINEMENT WITH MMG!
     ////////* EMPTY AND BACKUP THE MODEL PART *////////
     Model& r_owner_model = mrThisModelPart.GetModel();
     ModelPart& r_old_model_part = r_owner_model.CreateModelPart(mrThisModelPart.Name()+"_Old", mrThisModelPart.GetBufferSize());
@@ -379,7 +391,7 @@ void MmgProcess<TMMGLibrary>::ExecuteRemeshing()
     if (mDiscretization == DiscretizationOption::STANDARD) {
         mMmmgUtilities.MMGLibCallMetric(mThisParameters);
     } else if (mDiscretization == DiscretizationOption::ISOSURFACE) {
-        mMmmgUtilities.MMGLibCallIsoSurface(mThisParameters);
+        mMmmgUtilities.MMGLibCallIsoSurface(mThisParameters);       // [NG] WE SET OTHER PARAMETERS AND WE START THE REFINEMENT PROCESS WITH MMG
     } else {
         KRATOS_ERROR << "Discretization type: " << static_cast<int>(mDiscretization) << " not fully implemented" << std::endl;
     }
@@ -389,7 +401,7 @@ void MmgProcess<TMMGLibrary>::ExecuteRemeshing()
 
     // Some information
     MMGMeshInfo<TMMGLibrary> mmg_mesh_info;
-    mMmmgUtilities.PrintAndGetMmgMeshInfo(mmg_mesh_info);
+    mMmmgUtilities.PrintAndGetMmgMeshInfo(mmg_mesh_info);       // [NG] mmg_mesh_info IS FILLED WITH THE NUMBER OF TRIANGLES, TETRA ETC...
 
     // We clear the OLD_ENTITY flag
     if (collapse_prisms_elements) {
@@ -450,8 +462,11 @@ void MmgProcess<TMMGLibrary>::ExecuteRemeshing()
     r_old_model_part.AddElements( mrThisModelPart.ElementsBegin(), mrThisModelPart.ElementsEnd() );
     mrThisModelPart.RemoveElementsFromAllLevels(TO_ERASE);
 
+    std::cout << "\n\n*** THE NEW MODEL PART (r_old_model_part) IS FILLED ***" << std::endl;
+
     // Writing the new mesh data on the model part
     mMmmgUtilities.WriteMeshDataToModelPart(mrThisModelPart, mColors, mDofs, mmg_mesh_info, mpRefCondition, mpRefElement);
+    KRATOS_WARNING("\n*** mrThisModelPart AFTER WriteMeshDataToModelPart") << std::endl << mrThisModelPart << std::endl;
 
     // Writing the new solution data on the model part
     mMmmgUtilities.WriteSolDataToModelPart(mrThisModelPart);

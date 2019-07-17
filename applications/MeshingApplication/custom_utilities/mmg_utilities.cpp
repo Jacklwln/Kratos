@@ -841,6 +841,7 @@ Condition::Pointer MmgUtilities<MMGLibrary::MMG3D>::CreateFirstTypeCondition(
 
     int vertex_0, vertex_1, vertex_2;
 
+    // [NG] Ref: Reference of the triangle (from MMG API)
     KRATOS_ERROR_IF(MMG3D_Get_triangle(mMmgMesh, &vertex_0, &vertex_1, &vertex_2, &Ref, &IsRequired) != 1 ) << "Unable to get triangle" << std::endl;
 
     // Sometimes MMG creates conditions where there are not, then we skip
@@ -1093,6 +1094,7 @@ Element::Pointer MmgUtilities<MMGLibrary::MMG3D>::CreateFirstTypeElement(
 
     int vertex_0, vertex_1, vertex_2, vertex_3;
 
+    // [NG] Ref: Reference of the tetrahedron (from MMG API)
     KRATOS_ERROR_IF(MMG3D_Get_tetrahedron(mMmgMesh, &vertex_0, &vertex_1, &vertex_2, &vertex_3, &Ref, &IsRequired) != 1 ) << "Unable to get tetrahedron" << std::endl;
 
     if (mRemoveRegions && mDiscretization == DiscretizationOption::ISOSURFACE) {
@@ -2010,7 +2012,7 @@ void MmgUtilities<MMGLibrary::MMG3D>::MMGLibCallIsoSurface(Parameters Configurat
 //     /* Debug mode ON (default value = OFF) */
 //     KRATOS_ERROR_IF( MMG3D_Set_iparameter(mMmgMesh,mMmgSol,MMG3D_IPARAM_debug, 1) != 1 ) << "Unable to set on debug mode" << std::endl;
 
-    const int ier = MMG3D_mmg3dls(mMmgMesh, mMmgSol);
+    const int ier = MMG3D_mmg3dls(mMmgMesh, mMmgSol);       // [NG] REFINEMENT WITH MMG
 
     if ( ier == MMG5_STRONGFAILURE )
         KRATOS_ERROR << "ERROR: BAD ENDING OF MMG3DLIB: UNABLE TO SAVE MESH. ier: " << ier << std::endl;
@@ -2593,7 +2595,9 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
     )
 {
     // Before computing colors we do some check and throw a warning to get the user informed
-    const std::vector<std::string> sub_model_part_names = AssignUniqueModelPartCollectionTagUtility::GetRecursiveSubModelPartNames(rModelPart);
+    const std::vector<std::string> sub_model_part_names = AssignUniqueModelPartCollectionTagUtility::GetRecursiveSubModelPartNames(rModelPart); // [NG] LIST WITH ALL SUB MODEL PART NAME
+
+    std::cout << ("\t*** sub_model_part_names ") << sub_model_part_names << std::endl;
 
     for (auto sub_model_part_name : sub_model_part_names) {
         ModelPart& r_sub_model_part = AssignUniqueModelPartCollectionTagUtility::GetRecursiveSubModelPart(rModelPart, sub_model_part_name);
@@ -2614,6 +2618,11 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
     const auto it_cond_begin = r_conditions_array.begin();
     auto& r_elements_array = rModelPart.Elements();
     const auto it_elem_begin = r_elements_array.begin();
+
+    std::cout << "\t*** rModelPart.Nodes(): " << r_nodes_array.size() << std::endl;
+    std::cout << "\t*** rModelPart.Conditions(): " << r_conditions_array.size() << std::endl;
+    std::cout << "\t*** rModelPart.Elements(): " << r_elements_array.size() << std::endl;
+    std::cout << std::endl;
 
     // The following nodes will be remeshed
     std::unordered_set<IndexType> remeshed_nodes;
@@ -2676,6 +2685,9 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
         mmg_mesh_info.NumberOfTriangles = num_tri;
         mmg_mesh_info.NumberOfQuadrilaterals = num_quad;
 
+        std::cout << "\t*** NumberOfTriangles: " << num_tri << std::endl;
+        std::cout << "\t*** NumberOfQuadrilaterals: " << num_quad << std::endl;
+
         KRATOS_INFO_IF("MmgProcess", ((num_tri + num_quad) < r_conditions_array.size()) && mEchoLevel > 0) <<
         "Number of Conditions: " << r_conditions_array.size() << " Number of Triangles: " << num_tri << " Number of Quadrilaterals: " << num_quad << std::endl;
 
@@ -2704,6 +2716,10 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
 
         mmg_mesh_info.NumberOfTetrahedra = num_tetra;
         mmg_mesh_info.NumberOfPrism = num_prisms;
+
+        std::cout << "\t*** NumberOfTetrahedra: " << num_tetra << std::endl;
+        std::cout << "\t*** NumberOfPrism: " << num_prisms << std::endl;
+        std::cout << std::endl;
 
         KRATOS_INFO_IF("MmgProcess", ((num_tetra + num_prisms) < r_elements_array.size()) && mEchoLevel > 0) <<
         "Number of Elements: " << r_elements_array.size() << " Number of Tetrahedron: " << num_tetra << " Number of Prisms: " << num_prisms << std::endl;
@@ -2837,7 +2853,15 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
     rColors.clear();
     ColorsMapType nodes_colors, cond_colors, elem_colors;
     AssignUniqueModelPartCollectionTagUtility model_part_collections(rModelPart);
+    // [NG] ALL COLORS ARE FILLED WITH THIS FUNCTION
     model_part_collections.ComputeTags(nodes_colors, cond_colors, elem_colors, rColors);
+
+    std::cout << "\n\tafter ComputeTags" << std::endl;
+    std::cout << "\t\tnodes_colors: " << nodes_colors.size() << std::endl;
+    std::cout << "\t\tcond_colors: " << cond_colors.size() << std::endl;
+    std::cout << "\t\telem_colors: " << elem_colors.size() << std::endl;
+    std::cout << "\t\trColors: " << rColors.size() << std::endl;
+    std::cout << std::endl;
 
     /* Nodes */
     #pragma omp parallel for firstprivate(nodes_colors)
@@ -2906,6 +2930,8 @@ void MmgUtilities<TMMGLibrary>::GenerateMeshDataFromModelPart(
         if (!(rColorMapElement.find(color) != rColorMapElement.end()))
             rColorMapElement.insert (IndexPairType(color,elem_id));
     }
+    std::cout << "\t*** rColorMapCondition: " << rColorMapCondition.size() << std::endl;
+    std::cout << "\t*** rColorMapElement: " << rColorMapElement.size() << std::endl;
 }
 
 /***********************************************************************************/
@@ -2927,24 +2953,34 @@ void MmgUtilities<TMMGLibrary>::GenerateReferenceMaps(
     auto& r_elements_array = rModelPart.Elements();
     const auto it_elem_begin = r_elements_array.begin();
 
+    // [NG] rRefCondition is initializate with only a condition
     if (r_conditions_array.size() > 0) {
         const std::string type_name = (Dimension == 2) ? "Condition2D2N" : (TMMGLibrary == MMGLibrary::MMG3D) ? "SurfaceCondition3D3N" : "Condition3D2N";
         Condition const& r_clone_condition = KratosComponents<Condition>::Get(type_name);
         rRefCondition[0] = r_clone_condition.Create(0, r_clone_condition.GetGeometry(), it_cond_begin->pGetProperties());
     }
+    // [NG] rRefElement is initializate with only an element
     if (r_elements_array.size() > 0) {
         rRefElement[0] = it_elem_begin->Create(0, it_elem_begin->GetGeometry(), it_elem_begin->pGetProperties());
     }
 
     // Now we add the reference elements and conditions
+    // [NG] ref_cond.first = reference id of the model part (0: Main, 1: AuxModelPart etc..)
+    // [NG] ref_cond.second = id of the first condition in i-th model part
     for (auto& ref_cond : rColorMapCondition) {
         Condition::Pointer p_cond = rModelPart.pGetCondition(ref_cond.second);
+        std::cout << "\t ref_cond: " << ref_cond.first << " -> " << ref_cond.second << " (first -> second)" << std::endl;
         rRefCondition[ref_cond.first] = p_cond->Create(0, p_cond->GetGeometry(), p_cond->pGetProperties());
     }
+    std::cout << std::endl;
     for (auto& ref_elem : rColorMapElement) {
         Element::Pointer p_elem = rModelPart.pGetElement(ref_elem.second);
+        std::cout << "\t ref_elem: " << ref_elem.first << " -> " << ref_elem.second << " (first -> second)" << std::endl;
         rRefElement[ref_elem.first] = p_elem->Create(0, p_elem->GetGeometry(), p_elem->pGetProperties());
     }
+    std::cout << std::endl;
+    std::cout << "\t*** rRefCondition.size(): " << rRefCondition.size() << std::endl;
+    std::cout << "\t*** rRefElement.size(): " << rRefElement.size() << std::endl;
 }
 
 /***********************************************************************************/
@@ -2992,7 +3028,11 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
     std::unordered_map<IndexType,Element::Pointer>& rMapPointersRefElement
     )
 {
+    std::cout << "\n*** WriteMeshDataToModelPart ***" << std::endl;
+    // [NG] the rModelPart is empty here. In this function it will be filled with the MMG information
+
     // Create a new model part // TODO: Use a different kind of element for each submodelpart (in order to be able of remeshing more than one kind o element or condition)
+    // [NG]                                        nodes,       triangles,        quadrilaterals,    tetrahedras,      prisms
     std::unordered_map<IndexType, IndexVectorType> color_nodes, first_color_cond, second_color_cond, first_color_elem, second_color_elem;
 
     // The tempotal store of
@@ -3002,6 +3042,8 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
     // Auxiliar values
     int ref, is_required;
 
+    std::cout << "\t*** Nodes ***" << std::endl;
+    std::cout << "\t    rMMGMeshInfo.NumberOfNodes: " << rMMGMeshInfo.NumberOfNodes << std::endl;
     /* NODES */ // TODO: ADD OMP
     for (IndexType i_node = 1; i_node <= rMMGMeshInfo.NumberOfNodes; ++i_node) {
         NodeType::Pointer p_node = CreateNode(rModelPart, i_node, ref, is_required);
@@ -3013,13 +3055,17 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
         if (ref != 0) color_nodes[static_cast<IndexType>(ref)].push_back(i_node);// NOTE: ref == 0 is the MainModelPart
     }
 
+    std::cout << "\n\t*** Conditions ***" << std::endl;
+    std::cout << "\t    rMMGMeshInfo.NumberOfTriangles: " << rMMGMeshInfo.NumberOfTriangles << std::endl;
     /* CONDITIONS */ // TODO: ADD OMP
+    // [NG] here we check if there are conditions. if rMapPointersRefCondition.size() == 0 we have not conditions
+    // [NG] N.B. FirstTypeConditions = triangles; SecondTypeConditions = quadrilaterals
     if (rMapPointersRefCondition.size() > 0) {
         IndexType cond_id = 1;
 
         IndexType counter_first_cond = 0;
-        const IndexVectorType first_condition_to_remove = CheckFirstTypeConditions();
-        for (IndexType i_cond = 1; i_cond <= rMMGMeshInfo.NumberFirstTypeConditions(); ++i_cond) {
+        const IndexVectorType first_condition_to_remove = CheckFirstTypeConditions();   // [NG] CheckFirstTypeConditions(): For 2D and surface meshes it returns the ids of repeated edges found in the MMG mesh data structure. In 3D it returns ids of triangles.
+        for (IndexType i_cond = 1; i_cond <= rMMGMeshInfo.NumberFirstTypeConditions(); ++i_cond) {  // [NG] NumberFirstTypeConditions(): return NumberOfTriangles
             bool skip_creation = false;
             if (counter_first_cond < first_condition_to_remove.size()) {
                 if (first_condition_to_remove[counter_first_cond] == i_cond) {
@@ -3039,7 +3085,7 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
         }
 
         IndexType counter_second_cond = 0;
-        const IndexVectorType second_condition_to_remove = CheckSecondTypeConditions();
+        const IndexVectorType second_condition_to_remove = CheckSecondTypeConditions();     // [NG] CheckSecondTypeConditions(): For 3D meshes it returns the ids of repeated quadrilaterals found in the MMG mesh data structure. Otherwise, it returns an empty vector.
         for (IndexType i_cond = 1; i_cond <= rMMGMeshInfo.NumberSecondTypeConditions(); ++i_cond) {
             bool skip_creation = false;
             if (counter_second_cond < second_condition_to_remove.size()) {
@@ -3058,13 +3104,20 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
             }
         }
     }
+    std::cout << "\t    created_conditions_vector.size(): " << created_conditions_vector.size() << std::endl;
+
+    std::cout << "\n\t*** Elements ***" << std::endl;
+    std::cout << "\t    rMMGMeshInfo.NumberOfTetrahedra: " << rMMGMeshInfo.NumberOfTetrahedra << std::endl;
+    // for (auto x : rMapPointersRefElement)
+    //         std::cout << x.first << " " << x.second << std::endl;
 
     /* ELEMENTS */ // TODO: ADD OMP
+    // [NG] N.B. FirstTypeElements = tetrahedras; SecondTypeElements = prisms
     if (rMapPointersRefElement.size() > 0) {
         IndexType elem_id = 1;
 
         IndexType counter_first_elem = 0;
-        const IndexVectorType first_elements_to_remove = CheckFirstTypeElements();
+        const IndexVectorType first_elements_to_remove = CheckFirstTypeElements();  // [NG] CheckFirstTypeElements(): For 2D and surface meshes it returns the ids of repeated triangles found in the MMG mesh data structure. In 3D it returns ids of tetrahedra.
         for (IndexType i_elem = 1; i_elem <= rMMGMeshInfo.NumberFirstTypeElements(); ++i_elem) {
             bool skip_creation = false;
             if (counter_first_elem < first_elements_to_remove.size()) {
@@ -3085,7 +3138,7 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
         }
 
         IndexType counter_second_elem = 0;
-        const IndexVectorType second_elements_to_remove = CheckSecondTypeElements();
+        const IndexVectorType second_elements_to_remove = CheckSecondTypeElements();    // [NG] CheckSecondTypeElements(): For 3D meshes it returns the ids of repeated prisms found in the MMG mesh data structure. Otherwise, it returns an empty vector.
         for (IndexType i_elem = 1; i_elem <= rMMGMeshInfo.NumberSecondTypeElements(); ++i_elem) {
             bool skip_creation = false;
             if (counter_second_elem < second_elements_to_remove.size()) {
@@ -3105,10 +3158,15 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
             }
         }
     }
+    KRATOS_WARNING("\t    created_elements_vector.size()") << created_elements_vector.size() << std::endl;
 
     // Finally we add the conditions and elements to the main model part
     rModelPart.AddConditions(created_conditions_vector.begin(), created_conditions_vector.end());
     rModelPart.AddElements(created_elements_vector.begin(), created_elements_vector.end());
+
+    std::cout << "\n*****************************************************************" << std::endl;
+    std::cout << "rModelPart after CreateCondition/Element functions" << std::endl << rModelPart << std::endl;
+    std::cout << "*****************************************************************" << std::endl;
 
     // We add nodes, conditions and elements to the sub model parts
     for (auto& r_color_list : rColors) {
@@ -3126,18 +3184,24 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
             }
         }
     }
+    std::cout << "\n*****************************************************************" << std::endl;
+    std::cout << "rModelPart with sub model part filled" << std::endl << rModelPart << std::endl;
+    std::cout << "*****************************************************************" << std::endl;
 
     // TODO: Add OMP
     // NOTE: We add the nodes from the elements and conditions to the respective submodelparts
     const std::vector<std::string> sub_model_part_names = AssignUniqueModelPartCollectionTagUtility::GetRecursiveSubModelPartNames(rModelPart);
 
     for (auto sub_model_part_name : sub_model_part_names) {
+        KRATOS_WARNING("\n\nsub_model_part_name") << sub_model_part_name << std::endl;
         ModelPart& r_sub_model_part = AssignUniqueModelPartCollectionTagUtility::GetRecursiveSubModelPart(rModelPart, sub_model_part_name);
 
         std::unordered_set<IndexType> node_ids;
 
         auto& r_sub_conditions_array = r_sub_model_part.Conditions();
         const SizeType sub_num_conditions = r_sub_conditions_array.end() - r_sub_conditions_array.begin();
+
+        KRATOS_WARNING("\t*** sub_num_conditions") << sub_num_conditions << std::endl;
 
         for(IndexType i = 0; i < sub_num_conditions; ++i)  {
             auto it_cond = r_sub_conditions_array.begin() + i;
@@ -3150,6 +3214,8 @@ void MmgUtilities<TMMGLibrary>::WriteMeshDataToModelPart(
         auto& r_sub_elements_array = r_sub_model_part.Elements();
         const SizeType sub_num_elements = r_sub_elements_array.end() - r_sub_elements_array.begin();
 
+        KRATOS_WARNING("\t*** sub_num_elements") << sub_num_elements << std::endl;
+        
         for(IndexType i = 0; i < sub_num_elements; ++i) {
             auto it_elem = r_sub_elements_array.begin() + i;
             auto& r_elem_geom = it_elem->GetGeometry();

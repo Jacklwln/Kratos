@@ -90,7 +90,8 @@ namespace Kratos
 		const auto &r_coords = rNode.Coordinates();
 
 		// Loop the x,y and z (3D) ray directions
-        for (unsigned int i_direction = 0; i_direction < TDim; i_direction++){
+		for (unsigned int i_direction = 0; i_direction < TDim-1; i_direction++){		// raycasting xy
+        // for (unsigned int i_direction = 0; i_direction < TDim; i_direction++){		// raycasting xyz
 			// Initialize the current direction distance
 			distances[i_direction] = 1.0;
 
@@ -136,10 +137,11 @@ namespace Kratos
 			this->ComputeExtraRayColors(r_coords, distances);
 		}
 
+		/* for raycasting xy the "if" statement is commented because distances[2] is not considered (is in z direction) */
         double distance = (std::abs(distances[0]) > std::abs(distances[1])) ? distances[1] : distances[0];
-		if (TDim == 3){
-        	distance = (std::abs(distance) > std::abs(distances[2])) ? distances[2] : distance;
-		}
+		// if (TDim == 3){
+        // 	distance = (std::abs(distance) > std::abs(distances[2])) ? distances[2] : distance;
+		// }
 
         return distance;
 	}
@@ -160,7 +162,8 @@ namespace Kratos
 		unsigned int n_ray_pos = 0; // Positive rays counter
 		unsigned int n_ray_neg = 0; // Negative rays counter
 		IntersectionsContainerType intersections; // Ray intersections container initialization
-		for (unsigned int i_direction = 0; i_direction < TDim; ++i_direction) {
+		for (unsigned int i_direction = 0; i_direction < TDim-1; ++i_direction) {		// raycasting xy
+		// for (unsigned int i_direction = 0; i_direction < TDim; ++i_direction) {		// raycasting xyz
 			for (unsigned int i_ray = 0; i_ray < extra_ray_origs.size(); ++i_ray) {
 				// Creating the ray
 				const auto aux_ray = extra_ray_origs[i_ray];
@@ -197,7 +200,8 @@ namespace Kratos
 
 		// Do the extra rays voting
 		int ray_color = n_ray_neg > n_ray_pos ? -1 : 1;
-		for (unsigned int i_direction = 0; i_direction < TDim; ++i_direction) {
+		for (unsigned int i_direction = 0; i_direction < TDim-1; ++i_direction) {		// raycasting xy
+		// for (unsigned int i_direction = 0; i_direction < TDim; ++i_direction) {		// raycasting xyz
 			rDistances[i_direction] = std::abs(rDistances[i_direction]) * ray_color;
 		}
 	}
