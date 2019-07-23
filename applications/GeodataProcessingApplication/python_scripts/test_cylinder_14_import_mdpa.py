@@ -21,7 +21,7 @@ import time
 import os
 
 start_time = time.time()
-num_test = "cylinder_07_test_import"
+num_test = "cylinder_06_test_ObjImport"
 print("\n\nTEST ", num_test, "\n\n")
 
 # we create a new folders for this test
@@ -79,7 +79,7 @@ if import_terrain_mdpa:
 
 else:
 	# import STL terrain and compute mesh circle
-	preprocessor.ReadSTL("data/conference/terrain_Barcelona_2.stl")		# terrain_Barcelona_5
+	preprocessor.ReadSTL("data/terrain/terrain_Barcelona_2.stl")		# terrain_Barcelona_5
 
 	X = []; Y = []
 	for coord in preprocessor.point_list:
@@ -107,6 +107,9 @@ else:
 	# elem_list = mesher.MeshCircleWithTerrainPoints(height, 40, True)	# if the value is True we can save a list with the elements that are inside r_buildings
 	mesher.MeshCircleWithTerrainPoints(height, 40, extract_center)	# if extract_center = True we create a sub model part with conditions that are inside r_buildings
 
+	print(mesher.GetGeoModelPart())
+	# input("CHECK \"CenterCondition\"")
+
 	terrain_model_part = mesher.GetGeoModelPart()
 	# writing GiD file
 	mesher.CreateGidControlOutput("cfd_data/test_{}/gid_file/01_Mesh_cylinder".format(num_test))
@@ -116,7 +119,7 @@ else:
 
 	if extract_center:
 		importer._InitializeModelPart("center_model_part")
-		importer.HasModelPart = True
+		importer.HasModelPart = True	# IMPROVE IT! UGLY
 		center_model_part = importer.GetGeoModelPart()
 		prop = center_model_part.Properties[0]
 		sub_model_center = mesher.GetGeoModelPart().GetSubModelPart("CenterCondition")
@@ -124,7 +127,8 @@ else:
 			center_model_part.CreateNewNode(node.Id, node.X, node.Y, node.Z)
 		for cond in sub_model_center.Conditions:
 			nodes = cond.GetNodes()
-			center_model_part.CreateNewCondition("SurfaceCondition3D3N", cond.Id, [nodes[0].Id, nodes[1].Id, nodes[2].Id], prop)
+			# center_model_part.CreateNewCondition("SurfaceCondition3D3N", cond.Id, [nodes[0].Id, nodes[1].Id, nodes[2].Id], prop)
+			center_model_part.CreateNewElement("Element3D3N", cond.Id, [nodes[0].Id, nodes[1].Id, nodes[2].Id], prop)
 	
 	# we need to remove this sub model part to avoid problems in MMG process
 	mesher.GetGeoModelPart().RemoveSubModelPart("CenterCondition")
@@ -147,14 +151,15 @@ else:
 	mesher.WriteMdpaOutput(mdpa_out_name)
 	print("BOX REFINEMENT 1 DONE!")
 
+# terrain volume mesh ready
+main_model_part = mesher.GetGeoModelPart()
+
+
+# only for check (delete it)
 print(center_model_part)
 mesher.SetGeoModelPart(center_model_part)
 mesher.CreateGidControlOutput("cfd_data/test_{}/gid_file/center_model_part".format(num_test))
-input("\n03_Mesh_cylinder_refinement_1 DONE!\n")
-
-
-# terrain volume mesh ready
-main_model_part = mesher.GetGeoModelPart()
+# input("\n03_Mesh_cylinder_refinement_1 DONE!\n")
 
 
 # import buildings
@@ -166,7 +171,7 @@ building_model_part = importer.GetGeoModelPart()
 print(building_model_part)
 
 importer.CreateGidControlOutput("cfd_data/test_{}/gid_file/03_buildings".format(num_test))
-input("IMPORT BUILDINGS DONE!")
+# input("IMPORT BUILDINGS DONE!")
 
 # STL_center_name = "cfd_data/test_{}/stl_file/terrain_center.stl".format(num_test)
 # preprocessor.WriteSTL(STL_center_name, elem_list)
@@ -180,8 +185,11 @@ building.SetGeoModelPart(main_model_part)
 
 if extract_center:
 	building.ShiftBuildingOnTerrain(building_model_part, center_model_part)
-	building.DeleteBuildingsUnderValue(building_model_part, 10)
+	# building.DeleteBuildingsUnderValue(building_model_part, 10)	# ONLY FOR A CHECK
 	building.CreateGidControlOutput("cfd_data/test_{}/gid_file/buildings_shifted".format(num_test))
+	# writing file mdpa
+	mdpa_out_name = "cfd_data/test_{}/mdpa_file/buildings_shifted".format(num_test)
+	building.WriteMdpaOutput(mdpa_out_name)
 input("PAUSE shift buildings")
 
 
