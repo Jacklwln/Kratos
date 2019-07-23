@@ -79,8 +79,9 @@ class GeoProcessor:
 	                {
 	                    "result_file_configuration" : {
 	                        "gidpost_flags": {
-	                            "GiDPostMode": "GiD_PostBinary",
+	                            "GiDPostMode": "GiD_PostAscii",
                                 "WriteDeformedMeshFlag": "WriteDeformed",
+                                "WriteConditionsFlag": "WriteConditions",
 	                            "MultiFileFlag": "SingleFile"
 	                        },
 	                        "nodal_results"       : ["DISTANCE","DISTANCE_GRADIENT"],
